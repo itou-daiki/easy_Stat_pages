@@ -1,0 +1,79 @@
+# さくらのレンタルサーバー用 .htaccess設定
+# Passenger WSGIアプリケーション用
+
+# Python WSGIアプリケーションを有効化
+PassengerEnabled on
+PassengerAppRoot /home/[YOUR_USERNAME]/www/sakura_app
+
+# Python インタープリタのパス（さくらサーバーのPython 3.x）
+PassengerPython /usr/local/bin/python3
+
+# アプリケーションの起動スクリプト
+PassengerStartupFile passenger_wsgi.py
+
+# アプリケーションタイプ
+PassengerAppType wsgi
+
+# エラーページのカスタマイズ（オプション）
+ErrorDocument 404 /404.html
+ErrorDocument 500 /500.html
+
+# URLの書き換え設定
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 既存のファイルまたはディレクトリでない場合、アプリケーションにリクエストを渡す
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ passenger_wsgi.py/$1 [QSA,L]
+</IfModule>
+
+# セキュリティ設定
+<FilesMatch "\.(py|pyc|pyo)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# .htaccessファイル自体へのアクセス拒否
+<Files .htaccess>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# ファイルのブラウジング拒否
+Options -Indexes
+
+# アップロードサイズの制限（最大16MB）
+LimitRequestBody 16777216
+
+# Gzip圧縮を有効化（パフォーマンス向上）
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# ブラウザキャッシュの設定
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+</IfModule>
+
+# セキュリティヘッダー
+<IfModule mod_headers.c>
+    # XSS保護
+    Header set X-XSS-Protection "1; mode=block"
+
+    # クリックジャッキング対策
+    Header set X-Frame-Options "SAMEORIGIN"
+
+    # コンテンツタイプスニッフィング防止
+    Header set X-Content-Type-Options "nosniff"
+
+    # Referrer Policy
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
