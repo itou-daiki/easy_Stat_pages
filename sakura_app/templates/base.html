@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}easyStat{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-chart-line me-2"></i>easyStat
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home"></i> ホーム</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-chart-bar"></i> 分析
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/cleansing"><i class="fas fa-broom"></i> データクレンジング</a></li>
+                            <li><a class="dropdown-item" href="/eda"><i class="fas fa-search"></i> 探索的データ分析（EDA）</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/correlation"><i class="fas fa-project-diagram"></i> 相関分析</a></li>
+                            <li><a class="dropdown-item" href="/chi_square"><i class="fas fa-table"></i> カイ二乗検定</a></li>
+                            <li><a class="dropdown-item" href="/ttest"><i class="fas fa-vial"></i> t検定</a></li>
+                            <li><a class="dropdown-item" href="/anova"><i class="fas fa-chart-bar"></i> 分散分析</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/regression"><i class="fas fa-chart-line"></i> 回帰分析</a></li>
+                            <li><a class="dropdown-item" href="/factor_analysis"><i class="fas fa-sitemap"></i> 因子分析</a></li>
+                            <li><a class="dropdown-item" href="/pca"><i class="fas fa-compress-arrows-alt"></i> 主成分分析</a></li>
+                            <li><a class="dropdown-item" href="/text_mining"><i class="fas fa-file-alt"></i> テキストマイニング</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container-fluid py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-light py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-2">ご意見・ご要望は <a href="https://forms.gle/G5sMYm7dNpz2FQtU9" target="_blank">こちら</a> まで</p>
+            <p class="mb-0">© 2022-2025 Dit-Lab.(Daiki Ito). All Rights Reserved.</p>
+            <p class="text-muted small">easyStat: Open Source for Ubiquitous Statistics</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}相関分析 - easyStat{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4"><i class="fas fa-project-diagram me-2"></i>相関分析</h1>
+    <p class="lead">2つ以上の変数から相関係数を表やヒートマップで出力し、相関関係の解釈の補助を行います。</p>
+
+    <!-- File Upload Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-upload me-2"></i>データのアップロード
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label for="fileInput" class="form-label">CSVまたはExcelファイルを選択してください</label>
+                        <input type="file" class="form-control" id="fileInput" accept=".csv,.xlsx,.xls">
+                        <small class="text-muted">最大ファイルサイズ: 16MB</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">デモデータ</label>
+                    <button type="button" class="btn btn-outline-secondary w-100" id="useDemoBtn">
+                        <i class="fas fa-database me-2"></i>デモデータを使用
+                    </button>
+                </div>
+            </div>
+            <div id="uploadStatus" class="alert alert-info d-none mt-3" role="alert"></div>
+        </div>
+    </div>
+
+    <!-- Data Preview Section -->
+    <div id="dataPreviewSection" class="card mb-4 d-none">
+        <div class="card-header bg-success text-white">
+            <i class="fas fa-table me-2"></i>データプレビュー
+        </div>
+        <div class="card-body">
+            <div id="dataInfo" class="mb-3"></div>
+            <div class="table-responsive">
+                <table class="table table-striped table-sm" id="previewTable">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Settings Section -->
+    <div id="analysisSection" class="card mb-4 d-none">
+        <div class="card-header bg-info text-white">
+            <i class="fas fa-cog me-2"></i>分析設定
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">分析する数値変数を選択してください（2つ以上）</label>
+                <div id="columnCheckboxes"></div>
+                <small class="text-muted">少なくとも2つの変数を選択してください</small>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="removeMissing" checked>
+                <label class="form-check-label" for="removeMissing">
+                    欠損値を削除する
+                </label>
+            </div>
+            <button type="button" class="btn btn-primary" id="analyzeBtn">
+                <i class="fas fa-chart-line me-2"></i>相関分析を実行
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="d-none">
+        <!-- Correlation Matrix -->
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-table me-2"></i>相関マトリックス
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" id="correlationMatrixTable">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-th me-2"></i>相関係数のヒートマップ
+            </div>
+            <div class="card-body">
+                <div id="heatmapPlot"></div>
+            </div>
+        </div>
+
+        <!-- Scatter Matrix -->
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-chart-scatter me-2"></i>散布図行列
+            </div>
+            <div class="card-body">
+                <div id="scatterMatrixPlot"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// グローバル変数
+let currentData = null;
+let numericColumns = [];
+
+// ファイルアップロード処理
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        showUploadStatus('アップロード中...', 'info');
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            currentData = result;
+            showUploadStatus('ファイルのアップロードが完了しました', 'success');
+            displayDataPreview(result);
+            setupAnalysisSection(result);
+        } else {
+            showUploadStatus(`エラー: ${result.error}`, 'danger');
+        }
+    } catch (error) {
+        showUploadStatus(`エラー: ${error.message}`, 'danger');
+    }
+});
+
+// デモデータの読み込み
+document.getElementById('useDemoBtn').addEventListener('click', async () => {
+    try {
+        showUploadStatus('デモデータを読み込み中...', 'info');
+
+        const response = await fetch('/api/demo_data/correlation');
+        const result = await response.json();
+
+        if (response.ok) {
+            currentData = result;
+            showUploadStatus('デモデータの読み込みが完了しました', 'success');
+            displayDataPreview(result);
+            setupAnalysisSection(result);
+        } else {
+            showUploadStatus(`エラー: ${result.error}`, 'danger');
+        }
+    } catch (error) {
+        showUploadStatus(`エラー: ${error.message}`, 'danger');
+    }
+});
+
+// アップロード状況の表示
+function showUploadStatus(message, type) {
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.className = `alert alert-${type} mt-3`;
+    statusDiv.textContent = message;
+    statusDiv.classList.remove('d-none');
+}
+
+// データプレビューの表示
+function displayDataPreview(data) {
+    const section = document.getElementById('dataPreviewSection');
+    const infoDiv = document.getElementById('dataInfo');
+    const table = document.getElementById('previewTable');
+
+    // データ情報
+    infoDiv.innerHTML = `
+        <p><strong>ファイル名:</strong> ${data.filename}</p>
+        <p><strong>データサイズ:</strong> ${data.shape[0]}行 × ${data.shape[1]}列</p>
+    `;
+
+    // テーブルヘッダー
+    const thead = table.querySelector('thead');
+    thead.innerHTML = '<tr>' + data.columns.map(col => `<th>${col}</th>`).join('') + '</tr>';
+
+    // テーブルボディ
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = data.head.map(row => {
+        return '<tr>' + data.columns.map(col => `<td>${row[col] !== null ? row[col] : 'N/A'}</td>`).join('') + '</tr>';
+    }).join('');
+
+    section.classList.remove('d-none');
+}
+
+// 分析セクションの設定
+function setupAnalysisSection(data) {
+    // 数値変数の抽出
+    numericColumns = data.columns.filter(col => {
+        const dtype = data.dtypes[col];
+        return dtype.includes('int') || dtype.includes('float');
+    });
+
+    // チェックボックスの生成
+    const checkboxDiv = document.getElementById('columnCheckboxes');
+    checkboxDiv.innerHTML = numericColumns.map(col => `
+        <div class="form-check">
+            <input class="form-check-input column-checkbox" type="checkbox" value="${col}" id="col_${col}">
+            <label class="form-check-label" for="col_${col}">
+                ${col}
+            </label>
+        </div>
+    `).join('');
+
+    document.getElementById('analysisSection').classList.remove('d-none');
+}
+
+// 相関分析の実行
+document.getElementById('analyzeBtn').addEventListener('click', async () => {
+    // 選択された列を取得
+    const selectedColumns = Array.from(document.querySelectorAll('.column-checkbox:checked'))
+        .map(cb => cb.value);
+
+    if (selectedColumns.length < 2) {
+        alert('少なくとも2つの変数を選択してください');
+        return;
+    }
+
+    const removeMissing = document.getElementById('removeMissing').checked;
+
+    try {
+        const response = await fetch('/api/correlation/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                columns: selectedColumns,
+                remove_missing: removeMissing
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            displayResults(result);
+        } else {
+            alert(`エラー: ${result.error}`);
+        }
+    } catch (error) {
+        alert(`エラー: ${error.message}`);
+    }
+});
+
+// 結果の表示
+function displayResults(results) {
+    // 相関マトリックスの表示
+    displayCorrelationMatrix(results.correlation_matrix, results.columns);
+
+    // ヒートマップの表示
+    displayHeatmap(results.correlation_matrix, results.columns);
+
+    // 散布図行列の表示
+    displayScatterMatrix(results.scatter_data, results.columns);
+
+    document.getElementById('resultsSection').classList.remove('d-none');
+}
+
+// 相関マトリックステーブルの表示
+function displayCorrelationMatrix(matrix, columns) {
+    const table = document.getElementById('correlationMatrixTable');
+
+    // ヘッダー
+    const thead = table.querySelector('thead');
+    thead.innerHTML = '<tr><th></th>' + columns.map(col => `<th>${col}</th>`).join('') + '</tr>';
+
+    // ボディ
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = columns.map(row => {
+        return '<tr><th>' + row + '</th>' +
+            columns.map(col => {
+                const value = matrix[row][col];
+                const colorClass = Math.abs(value) > 0.7 ? 'bg-danger text-white' :
+                                  Math.abs(value) > 0.3 ? 'bg-warning' : '';
+                return `<td class="${colorClass}">${value.toFixed(3)}</td>`;
+            }).join('') +
+            '</tr>';
+    }).join('');
+}
+
+// ヒートマップの表示
+function displayHeatmap(matrix, columns) {
+    const z = columns.map(row => columns.map(col => matrix[row][col]));
+
+    const data = [{
+        z: z,
+        x: columns,
+        y: columns,
+        type: 'heatmap',
+        colorscale: 'RdBu',
+        zmid: 0,
+        text: z.map(row => row.map(val => val.toFixed(2))),
+        texttemplate: '%{text}',
+        textfont: {
+            color: z.map(row => row.map(val => Math.abs(val) > 0.5 ? 'white' : 'black'))
+        },
+        showscale: true
+    }];
+
+    const layout = {
+        title: '相関係数のヒートマップ',
+        xaxis: { title: '' },
+        yaxis: { title: '' },
+        height: 600
+    };
+
+    Plotly.newPlot('heatmapPlot', data, layout);
+}
+
+// 散布図行列の表示
+function displayScatterMatrix(scatterData, columns) {
+    const traces = [];
+    const n = columns.length;
+
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            if (i === j) {
+                // 対角線: ヒストグラム
+                traces.push({
+                    x: scatterData[i].values,
+                    type: 'histogram',
+                    name: columns[i],
+                    showlegend: false,
+                    xaxis: `x${i * n + j + 1}`,
+                    yaxis: `y${i * n + j + 1}`
+                });
+            } else {
+                // 散布図
+                traces.push({
+                    x: scatterData[j].values,
+                    y: scatterData[i].values,
+                    mode: 'markers',
+                    type: 'scatter',
+                    name: `${columns[j]} vs ${columns[i]}`,
+                    showlegend: false,
+                    xaxis: `x${i * n + j + 1}`,
+                    yaxis: `y${i * n + j + 1}`,
+                    marker: { size: 4 }
+                });
+            }
+        }
+    }
+
+    const layout = {
+        title: '散布図行列とヒストグラム',
+        height: 200 * n,
+        width: 200 * n,
+        grid: { rows: n, columns: n, pattern: 'independent' }
+    };
+
+    Plotly.newPlot('scatterMatrixPlot', traces, layout);
+}
+</script>
+{% endblock %}
